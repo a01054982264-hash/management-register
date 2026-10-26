@@ -1,0 +1,126 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>부정수급 접수·처리 현황 관리</title>
+<style>
+body{font-family:"Malgun Gothic",sans-serif;margin:0;background:#f4f6f9;color:#222;font-size:14px}
+header{background:#1f3a5f;color:#fff;padding:14px 20px}h1{margin:0;font-size:20px}header small{opacity:.8}
+main{padding:16px 20px}.bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center}
+select,input,button,textarea{font:inherit;padding:6px 8px;border:1px solid #bbb;border-radius:4px}
+button{background:#1f3a5f;color:#fff;cursor:pointer;border:0}button.g{background:#6b7785}button.r{background:#b33}
+.cards{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}.card{background:#fff;padding:10px 14px;border-radius:6px;min-width:130px;box-shadow:0 1px 3px #0002}
+.card b{display:block;font-size:20px;color:#1f3a5f}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;margin-bottom:14px}.charts div{background:#fff;padding:10px;border-radius:6px}
+.tw{overflow-x:auto;background:#fff;border-radius:6px}table{border-collapse:collapse;width:100%;min-width:1000px}
+th,td{border:1px solid #ddd;padding:5px 7px;text-align:left;vertical-align:top}th{background:#e8edf3;position:sticky;top:0}td.n{text-align:right}
+#md{display:none;position:fixed;inset:0;background:#0008;overflow:auto}#md>div{background:#fff;max-width:620px;margin:30px auto;padding:18px;border-radius:8px}
+#md label{display:block;margin:6px 0 2px;font-weight:bold}#md input,#md select,#md textarea{width:100%;box-sizing:border-box}
+pre{white-space:pre-wrap;background:#fafafa;padding:10px;border:1px solid #ddd}
+</style></head><body>
+<header><h1>부정수급 신고 접수 및 조사·조치 현황</h1><small>’25년 이후 접수·처리건 / 금액 단위: 백만원 / 출처: 붙임 ‘참고 5’</small></header>
+<main>
+<div class="bar">
+<button onclick="addRow()">＋ 접수처리건수 추가</button>
+<select id="fy" onchange="render()"><option value="">연도 전체</option></select>
+<select id="fb" onchange="render()"><option value="">사업 전체</option></select>
+<select id="fs" onchange="render()"><option value="">신고·인지 전체</option></select>
+<select id="fg" onchange="render()"><option value="">처리단계 전체</option></select>
+<input id="q" placeholder="내용·사업장·관계사 검색" oninput="render()">
+<button class="g" onclick="resetF()">필터 초기화</button>
+<button onclick="showReport()">내부보고자료 작성(한글)</button>
+<button class="g" onclick="resetData()">원본 복원</button>
+</div>
+<div class="cards" id="cards"></div>
+<div class="charts"><div id="c1"></div><div id="c2"></div><div id="c3"></div><div id="c4"></div></div>
+<div class="tw"><table><thead><tr><th>순번</th><th>연도</th><th>사업</th><th>사업장</th><th>관계사</th><th>신고·인지</th><th>내용</th><th>처리단계</th><th>사업장(개사)</th><th>보조금</th><th>환수결정액</th><th>환수액</th><th>후속조치·소송·수사(원문)</th><th>관리</th></tr></thead><tbody id="tb"></tbody></table></div>
+<p style="color:#666">※ 사업장·관계사는 원문에 없어 공란이며, 수정 버튼으로 입력합니다. 표의 ‘후속조치·소송·수사’ 항목은 원문 표의 셀 구분이 불명확하여 원문 값을 ‘|’로 구분해 기재함. 환수액 ‘-’은 공란 처리.</p>
+</main>
+<div id="md"><div id="mdb"></div></div>
+<script>
+const RAW=[
+[1,"25","안전동행","삼자신고","허위 서류, 가격부풀리기(산업용로봇)","취소·환수",1,97,583,97,"1 | 1(사업장) | 27"],
+[2,"25","스마트","공단인지","서류 변조, 가격부풀리기(청소로봇)","취소·환수",78,1791,9118,2482,"12 | 6 | 61(사업장60·판매사등1) | 63.82 | 수사중: 사업장78·판매사등14"],
+[3,"25","스마트","자진신고","페이백(운반로봇)","취소·환수",12,null,null,null,"2번과 중복사업장 (원문: 12 12 12 1)"],
+[4,"26","스마트","자진신고","페이백(인체감지시스템)","취소·환수",3,55,328,165,"2 | 2 | 수사중: 사업장113·판매사등2"],
+[5,"26","안전동행","공단인지","허위서류(사출성형기)","취소·환수",1,100,600,null,"1 | 1 | 1(사업장)"],
+[6,"26","안전투자","공단인지","허위서류(분체도장)","취소·환수",1,100,600,null,"1 | 1 | 1(사업장) | 7.7"],
+[7,"26","안전투자","공단인지","허위서류(사후관리)","취소·환수",1,100,600,null,"1"],
+[8,"26","안전투자","공단인지","허위서류(사후관리)","취소·환수",1,98,588,null,""],
+[9,"26","융자","공단인지","허위서류","취소·환수",22,6785,6785,6505,"1"],
+[10,"","안전동행","감사지적","중복(초과) 지원 ※부정수급 아님","취소·환수",3,259,183,null,""],
+[11,"","스마트","공단인지","과지급 ※부정수급 아님","취소·환수",16,328,130,36,"1 | 2(사업장)"],
+[12,"","안전동행","삼자신고","중고설비를 기존설비로 위장","취소·환수",1,100,603,null,""],
+[13,"","스마트","공단인지","서류 변조(근력보조슈트,운반로봇)","조사중",null,null,null,null,"2번과 중복 | 수사중: 112(사업장)"],
+[14,"","안전동행","삼자신고","페이백(목재가공기계)","조사중",null,null,null,null,"수사중: 사업장27·판매사등1"],
+[15,"","안전동행","삼자신고","허위신청(공작기계)","조사중",null,null,null,null,"수사중: 사업장7·판매사등1"],
+[16,"","안전일터","공단인지","공단사칭","조사중",null,null,null,null,"잠정중단"],
+[17,"","고위험","공단인지","제한 판매업체와 동일업체 의혹","조사중",null,null,null,null,"2"],
+[18,"","소규모","삼자신고","독점판매(리프트)","조사중",null,null,null,null,""],
+[19,"","고위험","삼자신고","페이백(충돌재해예방장치)","조사중",null,null,null,null,""],
+[20,"","고위험","삼자신고","가격부풀리기 부정당영업","조사중",null,null,null,null,""],
+[21,"","안전일터","공단인지","중국산 제품 가격부풀리기(산업용청소기)","조사중",null,null,null,null,""],
+[22,"","융자","공단인지","세금계산서 변조(충돌재해예방장치)","종결(참여제한)",null,null,null,null,"1"],
+[23,"","안전동행","삼자신고","자율...신고 위반(목재가공기계)","종결(참여제한)",null,null,null,null,"3"],
+[24,"","소규모","공단인지","페이백(충돌재해예방장치)","종결(증거 無)",null,null,null,null,""],
+[25,"","안전동행","공단인지","페이백(사후관리)","종결(증거 無)",null,null,null,null,""],
+[26,"","안전동행","삼자신고","페이백(목재가공기계)","종결(증거 無)",null,null,null,null,""],
+[27,"","스마트","공단인지","선투자(전동지게차)","종결(증거 無)",null,null,null,null,""],
+[28,"","안전동행","삼자신고","페이백(호퍼드라이버등)","종결(증거 無)",null,null,null,null,""],
+[29,"","안전동행","감사지적","페이백(소분미싱포장기)","종결(증거 無)",null,null,null,null,""],
+[30,"","스마트","삼자신고","제한 판매업체와 동일업체 의혹","종결(증거 無)",null,null,null,null,""],
+[31,"","고위험","자진신고","페이백(리프트)","종결(증거 無)",null,null,null,null,""],
+[32,"","스마트","공단인지","페이백(인체감지시스템)","종결(증거 無)",null,null,null,null,""],
+[33,"","스마트","공단인지","허위서류","종결(증거 無)",null,null,null,null,""],
+[34,"","안전일터","삼자신고","페이백","종결(참여제한)",null,null,null,null,"1"],
+[35,"","안전동행","공단인지","신청대행","종결(증거 無)",null,null,null,null,""],
+[36,"","안전동행","삼자신고","중고설비를 기존설비로 위장","종결(증거 無)",null,null,null,null,""]];
+const K=["no","yr","biz","src","txt","stg","firms","sub","dec","rec","note"];
+const mk=a=>({...Object.fromEntries(K.map((k,i)=>[k,a[i]])),site:"",rel:""});
+let D;try{D=JSON.parse(localStorage.getItem("fraudD2")||"null")}catch(e){}
+if(!D)D=RAW.map(mk);D.forEach(r=>{r.site=r.site||"";r.rel=r.rel||""});
+const save=()=>{try{localStorage.setItem("fraudD2",JSON.stringify(D))}catch(e){}};
+const STG=["취소·환수","조사중","종결(참여제한)","종결(증거 無)"];
+const $=id=>document.getElementById(id);
+const fmt=v=>v==null||v===""?"-":Number(v).toLocaleString();
+const uniq=k=>[...new Set(D.map(r=>r[k]).filter(Boolean))];
+function opts(){[["fy","yr"],["fb","biz"],["fs","src"],["fg","stg"]].forEach(([id,k])=>{const s=$(id),v=s.value,first=s.options[0].outerHTML;
+ s.innerHTML=first+uniq(k).sort().map(x=>`<option ${x==v?"selected":""}>${x}</option>`).join("");})}
+function filt(){const y=$("fy").value,b=$("fb").value,s=$("fs").value,g=$("fg").value,q=$("q").value.trim();
+ return D.filter(r=>(!y||r.yr==y)&&(!b||r.biz==b)&&(!s||r.src==s)&&(!g||r.stg==g)&&(!q||(r.txt+r.note+r.site+r.rel).includes(q)))}
+function resetF(){["fy","fb","fs","fg","q"].forEach(i=>$(i).value="");render()}
+function sum(a,k){return a.reduce((t,r)=>t+(+r[k]||0),0)}
+function bars(el,title,obj,unit){const e=Object.entries(obj),m=Math.max(1,...e.map(x=>x[1]));
+ let h=`<b>${title}</b><svg width="100%" viewBox="0 0 400 ${e.length*26+8}">`;
+ e.forEach(([k,v],i)=>{const w=v/m*230;h+=`<text x="0" y="${i*26+17}" font-size="12">${k}</text><rect x="95" y="${i*26+4}" width="${w}" height="16" fill="#3b6ea5"/><text x="${99+w}" y="${i*26+17}" font-size="12">${v.toLocaleString()}${unit}</text>`});
+ el.innerHTML=h+"</svg>"}
+function cnt(a,k){const o={};a.forEach(r=>{if(r[k]!==""&&r[k]!=null)o[r[k]]=(o[r[k]]||0)+1});return o}
+function amt(a,k){const o={};a.forEach(r=>{if(r.dec)o[r.biz]=(o[r.biz]||0)+(+r.dec)});return o}
+function render(){opts();const a=filt();
+ $("cards").innerHTML=[["접수건수",a.length+"건"],["취소·환수",a.filter(r=>r.stg=="취소·환수").length+"건"],["조사중",a.filter(r=>r.stg=="조사중").length+"건"],["종결",a.filter(r=>r.stg.startsWith("종결")).length+"건"],["보조금 합계",fmt(sum(a,"sub"))+" 백만원"],["환수결정액",fmt(sum(a,"dec"))+" 백만원"],["환수액",fmt(sum(a,"rec"))+" 백만원"]].map(x=>`<div class="card">${x[0]}<b>${x[1]}</b></div>`).join("");
+ bars($("c1"),"처리단계별 건수",cnt(a,"stg"),"건");bars($("c2"),"사업별 건수",cnt(a,"biz"),"건");
+ bars($("c3"),"신고·인지 구분별 건수",cnt(a,"src"),"건");bars($("c4"),"사업별 환수결정액(백만원)",amt(a),"");
+ $("tb").innerHTML=a.map(r=>`<tr><td>${r.no}</td><td>${r.yr?r.yr+"년":""}</td><td>${r.biz}</td><td>${r.site||""}</td><td>${r.rel||""}</td><td>${r.src}</td><td>${r.txt}</td><td>${r.stg}</td><td class=n>${fmt(r.firms)}</td><td class=n>${fmt(r.sub)}</td><td class=n>${fmt(r.dec)}</td><td class=n>${fmt(r.rec)}</td><td>${r.note}</td><td><button onclick="edit(${r.no})">수정</button> <button class=r onclick="del(${r.no})">삭제</button></td></tr>`).join("")}
+function addRow(){const n=Math.max(0,...D.map(r=>r.no))+1;D.push({no:n,yr:"26",biz:"",site:"",rel:"",src:"",txt:"",stg:"조사중",firms:null,sub:null,dec:null,rec:null,note:""});save();render();edit(n)}
+function del(n){if(confirm(n+"번 건을 삭제하시겠습니까?")){D=D.filter(r=>r.no!=n);save();render()}}
+function edit(n){const r=D.find(x=>x.no==n);
+ const t=(k,l,ty)=>`<label>${l}</label><input id="e_${k}" type="${ty||"text"}" value="${(r[k]??"").toString().replace(/"/g,"&quot;")}">`;
+ $("mdb").innerHTML=`<h3>순번 ${n} 수정</h3>${t("yr","연도(예: 25)")}${t("biz","사업")}${t("site","사업장")}${t("rel","관계사")}<label>신고·인지</label><select id="e_src">${["삼자신고","공단인지","자진신고","감사지적"].map(x=>`<option ${x==r.src?"selected":""}>${x}</option>`).join("")}</select>${t("txt","내용")}<label>처리단계</label><select id="e_stg">${STG.map(x=>`<option ${x==r.stg?"selected":""}>${x}</option>`).join("")}</select>${t("firms","사업장(개사)","number")}${t("sub","보조금(백만원)","number")}${t("dec","환수결정액(백만원)","number")}${t("rec","환수액(백만원)","number")}<label>후속조치·소송·수사</label><textarea id="e_note" rows="3">${r.note}</textarea><p><button onclick="saveE(${n})">저장</button> <button class="g" onclick="closeM()">닫기</button></p>`;$("md").style.display="block"}
+function saveE(n){const r=D.find(x=>x.no==n);["yr","biz","site","rel","src","txt","stg","note"].forEach(k=>r[k]=$("e_"+k).value);
+ ["firms","sub","dec","rec"].forEach(k=>{const v=$("e_"+k).value;r[k]=v===""?null:+v});save();closeM();render()}
+function closeM(){$("md").style.display="none"}
+function resetData(){if(confirm("입력·수정 내용을 지우고 원본으로 복원합니까?")){D=RAW.map(mk);save();render()}}
+function reportHTML(){const a=D,N=a.length,g=s=>a.filter(r=>r.stg==s),rc=g("취소·환수"),real=rc.filter(r=>!r.txt.includes("부정수급 아님"));
+ const c=(o)=>Object.entries(o).map(([k,v])=>`${k} ${v}건`).join(", ");
+ const today=new Date().toLocaleDateString("ko-KR");
+ let rows=rc.map(r=>`<tr><td>${r.no}</td><td>${r.biz}</td><td>${r.site||""}</td><td>${r.rel||""}</td><td>${r.src}</td><td>${r.txt}</td><td>${fmt(r.firms)}</td><td>${fmt(r.sub)}</td><td>${fmt(r.dec)}</td><td>${fmt(r.rec)}</td></tr>`).join("");
+ let ing=g("조사중").map(r=>`<li>${r.no}. [${r.biz}/${r.src}]${r.site?" "+r.site:""} ${r.txt}${r.note?" ("+r.note+")":""}</li>`).join("");
+ return `<h2 style="text-align:center">부정수급 신고 접수 및 조사·조치 현황 보고</h2><p style="text-align:right">${today} / 부정수급 담당</p>
+<h3>1. 접수·처리 개요</h3><ul><li>접수 총 ${N}건 (신고·인지 구분별: ${c(cnt(a,"src"))})</li><li>처리단계별: ${c(cnt(a,"stg"))}</li><li>사업별: ${c(cnt(a,"biz"))}</li></ul>
+<h3>2. 취소·환수 처리 현황 (${rc.length}건, 부정수급 아님 ${rc.length-real.length}건 포함)</h3><ul><li>보조금 ${fmt(sum(rc,"sub"))}백만원, 환수결정액 ${fmt(sum(rc,"dec"))}백만원, 환수액 ${fmt(sum(rc,"rec"))}백만원</li></ul>
+<table border="1" style="border-collapse:collapse;width:100%"><tr><th>순번</th><th>사업</th><th>사업장</th><th>관계사</th><th>구분</th><th>내용</th><th>사업장(개사)</th><th>보조금</th><th>환수결정액</th><th>환수액</th></tr>${rows}</table><p>※ 금액 단위: 백만원</p>
+<h3>3. 조사중 건 (${g("조사중").length}건)</h3><ul>${ing}</ul>
+<h3>4. 종결 건 (${a.filter(r=>r.stg.startsWith("종결")).length}건)</h3><ul><li>참여제한 종결 ${g("종결(참여제한)").length}건, 증거 없음 종결 ${g("종결(증거 無)").length}건</li></ul>
+<h3>5. 향후 계획</h3><ul><li>조사중 건 조사 지속 및 결과에 따른 취소·환수, 참여제한 등 조치</li><li>환수결정액 대비 미환수액 징수 관리</li></ul>`}
+function showReport(){$("mdb").innerHTML=`<div id="rp">${reportHTML()}</div><p><button onclick="dl()">한글(.hwp 호환 .doc) 파일 저장</button> <button class="g" onclick="window.print()">인쇄</button> <button class="g" onclick="closeM()">닫기</button></p><small>※ 저장된 파일은 한컴오피스 한글에서 열 수 있습니다.</small>`;$("md").style.display="block"}
+function dl(){const h=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>body{font-family:'맑은 고딕';font-size:11pt}td,th{border:1px solid #000;padding:3px}</style></head><body>${$("rp").innerHTML}</body></html>`;
+ const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+h],{type:"application/msword"}));a.download="부정수급_내부보고자료.doc";a.click()}
+render();
+</script></body></html>
